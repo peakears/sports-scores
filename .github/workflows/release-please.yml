@@ -25,7 +25,7 @@ jobs:
       tag_name: ${{ steps.release.outputs.tag_name }}
       sha: ${{ steps.release.outputs.sha }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         id: release
         with:
           config-file: release-please-config.json
@@ -59,7 +59,7 @@ jobs:
     needs: [release-please, apk]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: hat-trick-${{ needs.release-please.outputs.tag_name }}.apk
       - name: Upload to the draft release, then publish it
@@ -80,7 +80,7 @@ jobs:
     if: ${{ !cancelled() && needs.release-please.result == 'success' && needs.apk.result != 'failure' && needs.publish.result != 'failure' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
