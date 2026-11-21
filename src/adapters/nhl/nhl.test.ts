@@ -91,7 +91,7 @@ describe("NHL adapter", () => {
     await adapter.getLeaders({ category: "savePctg", limit: 5 });
     expect(urls).toEqual([
       "https://api-web.nhle.com/v1/score/2026-11-17",
-      "https://api-web.nhle.com/v1/skater-stats-leaders/current?categories=goals,assists,points&limit=10",
+      "https://api-web.nhle.com/v1/skater-stats-leaders/current?categories=points,goals,assists&limit=10",
       "https://api-web.nhle.com/v1/goalie-stats-leaders/current?categories=savePctg&limit=5",
     ]);
   });
@@ -588,6 +588,11 @@ describe("NHL adapter", () => {
   });
 
   describe("leaders", () => {
+    it("lists skater categories as points, goals, assists", async () => {
+      const boards = await fixtureAdapter().adapter.getLeaders();
+      expect(boards.map((b) => b.label)).toEqual(["Points", "Goals", "Assists"]);
+    });
+
     it("gives tied values the same rank", async () => {
       const boards = await fixtureAdapter().adapter.getLeaders();
       const assists = boards.find((b) => b.category === "assists")!;

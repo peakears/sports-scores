@@ -52,7 +52,8 @@ export const SEASON_GOALIE_COLUMNS: StatColumn[] = [
 /** How many recent and upcoming games the team page keeps. */
 export const TEAM_GAMES_SHOWN = 5;
 
-export const SKATER_LEADER_CATEGORIES = ["goals", "assists", "points"];
+// In display order: points first, as the league and most apps list them.
+export const SKATER_LEADER_CATEGORIES = ["points", "goals", "assists"];
 export const GOALIE_LEADER_CATEGORIES = ["wins", "savePctg", "goalsAgainstAverage", "shutouts"];
 
 export const LEADER_LABELS: Record<string, string> = {
