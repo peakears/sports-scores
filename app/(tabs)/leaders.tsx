@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
 import type { FetchOptions } from "../../src/data";
 import { Segmented } from "../../src/ui/components/Segmented";
 import { ErrorView, Loading, OfflineBanner, UpdatedAt } from "../../src/ui/components/States";
@@ -19,6 +20,7 @@ const GOALIE_CATEGORIES = ["wins", "savePctg", "goalsAgainstAverage", "shutouts"
 export default function LeadersScreen() {
   const sports = useSportsData();
   const colors = useColors();
+  const router = useRouter();
   const [kind, setKind] = useState<Kind>("skaters");
 
   const leaders = usePolled(`leaders:${kind}`, async (o: FetchOptions) => {
@@ -59,7 +61,12 @@ export default function LeadersScreen() {
             </Text>
           )}
           renderItem={({ item }) => (
-            <View style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+            <Pressable
+              onPress={() => router.push({ pathname: "/player/[id]", params: { id: item.player.id } })}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.rank}. ${item.player.name}, ${item.team.abbrev}, ${statValue(item.value)}. Open player page`}
+              style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+            >
               <Text style={[styles.rank, tabular, { color: colors.muted }]}>{item.rank}</Text>
               <TeamLogo team={item.team} size={24} />
               <View style={styles.who}>
@@ -69,7 +76,7 @@ export default function LeadersScreen() {
                 <Text style={{ color: colors.muted, fontSize: 12 }}>{item.team.abbrev}</Text>
               </View>
               <Text style={[styles.value, tabular, { color: colors.text }]}>{statValue(item.value)}</Text>
-            </View>
+            </Pressable>
           )}
           ListFooterComponent={<UpdatedAt meta={leaders.meta} />}
         />

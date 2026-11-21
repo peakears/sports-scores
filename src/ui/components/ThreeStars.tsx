@@ -1,13 +1,15 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { GameStar } from "../../domain";
 import { starAccessibilityLabel, starIconCount, starPlayerLine, starStatLine } from "../stars";
 import { tabular, useColors } from "../theme";
 import { PlayerHeadshot } from "./PlayerHeadshot";
 
-/** The game's three stars: photo, name, team and a short stat line under it for each, first star first. */
+/** The game's three stars: photo, name, team and a short stat line under it for each, first star first. Each opens the player page. */
 export function ThreeStars({ stars }: { stars: GameStar[] }) {
   const colors = useColors();
+  const router = useRouter();
   if (stars.length === 0) return null;
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -18,11 +20,12 @@ export function ThreeStars({ stars }: { stars: GameStar[] }) {
         const playerLine = starPlayerLine(star);
         const statLine = starStatLine(star);
         return (
-          <View
+          <Pressable
             key={`${star.rank}-${star.player.id}`}
+            onPress={() => router.push({ pathname: "/player/[id]", params: { id: star.player.id } })}
             style={[styles.row, i > 0 && { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth }]}
-            accessible
-            accessibilityLabel={starAccessibilityLabel(star)}
+            accessibilityRole="button"
+            accessibilityLabel={`${starAccessibilityLabel(star)}. Open player page`}
           >
             {/* One icon for the first star, two for the second, three for the third. */}
             <View style={styles.rank}>
@@ -47,7 +50,7 @@ export function ThreeStars({ stars }: { stars: GameStar[] }) {
                 </Text>
               ) : null}
             </View>
-          </View>
+          </Pressable>
         );
       })}
     </View>

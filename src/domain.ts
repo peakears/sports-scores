@@ -114,11 +114,14 @@ export interface Goal {
   awayScore?: number;
 }
 
-/** A short stat shown with a star: "1" + "G", "29" + "saves", "24:10" + "TOI". */
-export interface StarStat {
+/** One stat as value and label: "1" + "G", "29" + "saves", ".912" + "SV%". */
+export interface StatItem {
   value: string;
   label: string;
 }
+
+/** A stat shown with one of the three stars. */
+export type StarStat = StatItem;
 
 /** One of the players the league named as a game's three stars. */
 export interface GameStar {
@@ -153,6 +156,63 @@ export interface TeamDetail {
   upcoming?: Game[];
   /** The team's home arena: the venue most of its home games in the schedule use. Absent when unknown. */
   arena?: string;
+}
+
+// ---------- Player page ----------
+
+/** Where a player is from and how they came into the league. Each field is absent when unknown. */
+export interface PlayerBio {
+  birthDate?: string; // YYYY-MM-DD
+  /** "London, Ontario, CAN": as specific as the league reports. */
+  birthPlace?: string;
+  heightCm?: number;
+  heightIn?: number;
+  weightKg?: number;
+  weightLb?: number;
+  /** Shoots (skaters) or catches (goalies): "L" or "R". */
+  handedness?: string;
+  draft?: { year: number; teamId: string; round: number; overallPick: number };
+}
+
+/** One of the player's recent games. `values` are keyed by the table's column keys. */
+export interface PlayerGameLine {
+  gameId: string;
+  date: string; // YYYY-MM-DD
+  teamId: string;
+  opponentId: string;
+  home?: boolean;
+  values: Record<string, string | number>;
+}
+
+/** One season with one team (a player who changed teams has one line per team). */
+export interface PlayerSeasonLine {
+  season: string; // "2026-27"
+  team: string; // short name for this league's teams ("Kings"), full name elsewhere
+  league: string; // as the league names it: "NHL", "AHL", "OHL"
+  /** True for seasons in this app's league (the NHL for the NHL adapter). */
+  inLeague: boolean;
+  playoffs: boolean;
+  values: Record<string, string | number>;
+}
+
+export interface PlayerDetail {
+  /** Full name, current team, position and photo. */
+  player: Player;
+  sweaterNumber?: number;
+  /** The current team, when the player has one. */
+  team?: Team;
+  active: boolean;
+  goalie: boolean;
+  bio: PlayerBio;
+  /** "2026-27": the season `season` is for. */
+  seasonLabel?: string;
+  /** This regular season in a few stats, in display order. Empty before the player's first game. */
+  season: StatItem[];
+  career: { regularSeason: StatItem[]; playoffs: StatItem[] };
+  /** Most recent first, up to 5. */
+  lastGames: { columns: StatColumn[]; games: PlayerGameLine[] };
+  /** Newest first, every league the player has played in. */
+  seasons: { columns: StatColumn[]; rows: PlayerSeasonLine[] };
 }
 
 // ---------- Standings ----------
@@ -243,4 +303,7 @@ export interface LeagueAdapter {
 
   /** A team's season stats and its recent and upcoming games. `teamId` is a Team.id. */
   getTeam(teamId: string, options?: RequestOptions): Promise<TeamDetail>;
+
+  /** A player's bio, stats and recent games. `playerId` is a Player.id. */
+  getPlayer(playerId: string, options?: RequestOptions): Promise<PlayerDetail>;
 }

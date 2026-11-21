@@ -48,6 +48,7 @@ export default function RootLayout() {
                 <Stack.Screen name="game/[id]/index" options={{ title: "Game" }} />
                 <Stack.Screen name="game/[id]/box-score" options={{ title: "Box score" }} />
                 <Stack.Screen name="team/[id]" options={{ title: "Team" }} />
+                <Stack.Screen name="player/[id]" options={{ title: "Player" }} />
               </Stack>
               <Reminders />
               <StatusBar style="auto" />

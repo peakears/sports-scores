@@ -49,6 +49,44 @@ export const SEASON_GOALIE_COLUMNS: StatColumn[] = [
   { key: "shutouts", label: "SO" },
 ];
 
+// Player page tables. Keys are the domain keys the mapper fills in.
+export const PLAYER_GAME_SKATER_COLUMNS: StatColumn[] = [
+  { key: "goals", label: "G" },
+  { key: "assists", label: "A" },
+  { key: "points", label: "PTS" },
+  { key: "plusMinus", label: "+/-" },
+  { key: "shots", label: "SOG" },
+  { key: "pim", label: "PIM" },
+  { key: "toi", label: "TOI" },
+];
+
+export const PLAYER_GAME_GOALIE_COLUMNS: StatColumn[] = [
+  { key: "decision", label: "DEC" },
+  { key: "shotsAgainst", label: "SA" },
+  { key: "goalsAgainst", label: "GA" },
+  { key: "savePctg", label: "SV%" },
+  { key: "toi", label: "TOI" },
+];
+
+export const PLAYER_SEASON_SKATER_COLUMNS: StatColumn[] = [
+  { key: "gamesPlayed", label: "GP" },
+  { key: "goals", label: "G" },
+  { key: "assists", label: "A" },
+  { key: "points", label: "PTS" },
+  { key: "plusMinus", label: "+/-" },
+  { key: "pim", label: "PIM" },
+];
+
+export const PLAYER_SEASON_GOALIE_COLUMNS: StatColumn[] = [
+  { key: "gamesPlayed", label: "GP" },
+  { key: "wins", label: "W" },
+  { key: "losses", label: "L" },
+  { key: "otLosses", label: "OTL" },
+  { key: "goalsAgainstAvg", label: "GAA" },
+  { key: "savePctg", label: "SV%" },
+  { key: "shutouts", label: "SO" },
+];
+
 /** How many recent and upcoming games the team page keeps. */
 export const TEAM_GAMES_SHOWN = 5;
 

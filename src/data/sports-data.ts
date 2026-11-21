@@ -14,6 +14,7 @@ import type {
   LeagueId,
   RequestOptions,
   Standings,
+  PlayerDetail,
   TeamDetail,
 } from "../domain";
 import type { AdapterRegistry } from "../registry";
@@ -118,6 +119,18 @@ export class SportsData {
         key: `${league}:team:${teamId}`,
         load: (o) => this.registry.get(league).getTeam(teamId, o),
         freshFor: (detail, now) => teamFreshness(detail, now),
+      },
+      options,
+    );
+  }
+
+  getPlayer(league: LeagueId, playerId: string, options?: FetchOptions): Promise<Fetched<PlayerDetail>> {
+    return this.get(
+      {
+        league,
+        key: `${league}:player:${playerId}`,
+        load: (o) => this.registry.get(league).getPlayer(playerId, o),
+        freshFor: () => FRESHNESS.player,
       },
       options,
     );

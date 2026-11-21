@@ -34,6 +34,8 @@ export const FRESHNESS = {
   /** The team is playing (or about to): its stats and games are about to change. */
   teamLive: 1 * MINUTE,
   leaders: 30 * MINUTE,
+  /** A player's page: season totals and recent games only change when one of their games ends. */
+  player: 30 * MINUTE,
 } as const;
 
 /** How long one game stays fresh. */

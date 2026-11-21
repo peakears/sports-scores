@@ -309,6 +309,114 @@ export const RawLandingSchema = z.object({
   summary: minor(z.object({ threeStars: lenientArray(RawThreeStarSchema, "summary.threeStars") }), "summary"),
 });
 
+// ---------- Player (/player/{id}/landing) ----------
+// Verified on 2026-11-20 against a skater (Doughty) and a goalie (Kuemper). Skater and goalie rows
+// share one schema: each only has its own stats, and every stat is minor. `gameTypeId` 2 is the
+// regular season, 3 the playoffs.
+
+const RawPlayerStatsSchema = z.object({
+  gamesPlayed: num("gamesPlayed"),
+  // Skaters.
+  goals: num("goals"),
+  assists: num("assists"),
+  points: num("points"),
+  plusMinus: num("plusMinus"),
+  pim: num("pim"),
+  shots: num("shots"),
+  shootingPctg: num("shootingPctg"),
+  powerPlayPoints: num("powerPlayPoints"),
+  avgToi: str("avgToi"), // "25:55" per game
+  // Goalies.
+  gamesStarted: num("gamesStarted"),
+  wins: num("wins"),
+  losses: num("losses"),
+  otLosses: num("otLosses"),
+  goalsAgainstAvg: num("goalsAgainstAvg"),
+  savePctg: num("savePctg"),
+  shutouts: num("shutouts"),
+});
+
+export const RawPlayerSeasonSchema = RawPlayerStatsSchema.extend({
+  season: z.number(), // 20262027
+  gameTypeId: z.number(),
+  leagueAbbrev: z.string(), // "NHL", "AHL", "OHL", "WJC-A"...
+  teamName: LocalizedSchema, // "Los Angeles Kings", or "Lon. Jr. Knights" outside the NHL
+  teamCommonName: localized("seasonTotals.teamCommonName"), // NHL rows only, "Kings"
+});
+
+export const RawPlayerGameSchema = z.object({
+  gameId: z.number(),
+  gameDate: z.string(), // "2026-11-19", local to the game
+  gameTypeId: num("last5Games.gameTypeId"),
+  teamAbbrev: z.string(),
+  opponentAbbrev: z.string(),
+  homeRoadFlag: str("last5Games.homeRoadFlag"), // "H" | "R"
+  // Skaters.
+  goals: num("last5Games.goals"),
+  assists: num("last5Games.assists"),
+  points: num("last5Games.points"),
+  plusMinus: num("last5Games.plusMinus"),
+  shots: num("last5Games.shots"),
+  pim: num("last5Games.pim"),
+  toi: str("last5Games.toi"), // "25:53"
+  // Goalies.
+  decision: str("last5Games.decision"), // "W" | "L" | "O"
+  shotsAgainst: num("last5Games.shotsAgainst"),
+  goalsAgainst: num("last5Games.goalsAgainst"),
+  savePctg: num("last5Games.savePctg"),
+});
+
+export const RawPlayerLandingSchema = z.object({
+  playerId: z.number(),
+  firstName: LocalizedSchema,
+  lastName: LocalizedSchema,
+  position: z.string(), // "C" | "L" | "R" | "D" | "G"
+  isActive: bool("isActive"),
+  currentTeamAbbrev: str("currentTeamAbbrev"), // absent for a retired player (unverified)
+  fullTeamName: localized("fullTeamName"),
+  teamLogo: str("teamLogo"),
+  sweaterNumber: num("sweaterNumber"),
+  headshot: str("headshot"),
+  heightInInches: num("heightInInches"),
+  heightInCentimeters: num("heightInCentimeters"),
+  weightInPounds: num("weightInPounds"),
+  weightInKilograms: num("weightInKilograms"),
+  birthDate: str("birthDate"), // "1989-12-08"
+  birthCity: localized("birthCity"),
+  birthStateProvince: localized("birthStateProvince"),
+  birthCountry: str("birthCountry"), // "CAN", ISO 3166 alpha-3
+  shootsCatches: str("shootsCatches"), // "L" | "R"
+  draftDetails: minor(
+    z.object({
+      year: z.number(),
+      teamAbbrev: z.string(),
+      round: z.number(),
+      pickInRound: z.number().optional(),
+      overallPick: z.number(),
+    }),
+    "draftDetails",
+  ),
+  featuredStats: minor(
+    z.object({
+      season: z.number(), // 20262027
+      regularSeason: minor(
+        z.object({ subSeason: minor(RawPlayerStatsSchema, "featuredStats.subSeason") }),
+        "featuredStats.regularSeason",
+      ),
+    }),
+    "featuredStats",
+  ),
+  careerTotals: minor(
+    z.object({
+      regularSeason: minor(RawPlayerStatsSchema, "careerTotals.regularSeason"),
+      playoffs: minor(RawPlayerStatsSchema, "careerTotals.playoffs"),
+    }),
+    "careerTotals",
+  ),
+  last5Games: lenientArray(RawPlayerGameSchema, "last5Games"),
+  seasonTotals: lenientArray(RawPlayerSeasonSchema, "seasonTotals"),
+});
+
 // ---------- Inferred types ----------
 
 export type Localized = z.output<typeof LocalizedSchema>;
@@ -331,3 +439,7 @@ export type RawLeader = z.output<typeof RawLeaderSchema>;
 export type RawLeadersResponse = z.output<typeof RawLeadersResponseSchema>;
 export type RawThreeStar = z.output<typeof RawThreeStarSchema>;
 export type RawLanding = z.output<typeof RawLandingSchema>;
+export type RawPlayerStats = z.output<typeof RawPlayerStatsSchema>;
+export type RawPlayerSeason = z.output<typeof RawPlayerSeasonSchema>;
+export type RawPlayerGame = z.output<typeof RawPlayerGameSchema>;
+export type RawPlayerLanding = z.output<typeof RawPlayerLandingSchema>;

@@ -14,6 +14,9 @@ import type {
   LeagueAdapter,
   LeagueId,
   Player,
+  PlayerDetail,
+  StatColumn,
+  StatItem,
   StatTable,
   Team,
   TeamDetail,
@@ -30,6 +33,8 @@ export interface ContractInputs {
   leaderQueries: LeaderQuery[];
   /** Team ids with recorded team fixtures (season stats and schedule). */
   teamIds: string[];
+  /** Player ids with recorded player fixtures. Should include a skater and a goalie. */
+  playerIds: string[];
 }
 
 export interface ContractOptions {
@@ -247,6 +252,55 @@ export function runLeagueAdapterContract(options: ContractOptions): void {
       });
     });
 
+    describe("getPlayer", () => {
+      const expectItems = (items: StatItem[], what: string) => {
+        for (const item of items) {
+          expectNonEmptyString(item.value, `${what} value`);
+          expectNonEmptyString(item.label, `${what} label`);
+        }
+      };
+      const expectValues = (values: Record<string, string | number>, columns: StatColumn[], what: string) => {
+        const keys = columns.map((c) => c.key);
+        for (const key of Object.keys(values)) expect(keys, `${what}: ${key} is one of the columns`).toContain(key);
+      };
+
+      it.each(inputs.playerIds)("returns a player page for %s", async (playerId) => {
+        const detail: PlayerDetail = await makeAdapter().getPlayer(playerId);
+        expectPlayer(detail.player, league);
+        expect(detail.player.id).toBe(playerId);
+        if (detail.team) expectTeam(detail.team, league);
+        expectItems(detail.season, "season");
+        expectItems(detail.career.regularSeason, "career");
+        expectItems(detail.career.playoffs, "playoffs");
+
+        expect(detail.lastGames.games.length).toBeLessThanOrEqual(5);
+        for (const g of detail.lastGames.games) {
+          expectNonEmptyString(g.gameId, "game id");
+          expect(g.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+          expectValues(g.values, detail.lastGames.columns, "last games");
+        }
+        const dates = detail.lastGames.games.map((g) => g.date);
+        expect(dates, "last games are newest first").toEqual([...dates].sort().reverse());
+
+        for (const s of detail.seasons.rows) {
+          expectNonEmptyString(s.season, "season");
+          expectNonEmptyString(s.team, "season team");
+          expectValues(s.values, detail.seasons.columns, "seasons");
+        }
+        const seasons = detail.seasons.rows.map((s) => s.season);
+        expect(seasons, "seasons are newest first").toEqual([...seasons].sort().reverse());
+        expectJsonSafe(detail);
+      });
+
+      it("covers a skater and a goalie", async () => {
+        const goalies = await Promise.all(
+          inputs.playerIds.map(async (id) => (await makeAdapter().getPlayer(id)).goalie),
+        );
+        expect(goalies).toContain(true);
+        expect(goalies).toContain(false);
+      });
+    });
+
     describe("errors", () => {
       it("rejects when the transport fails", async () => {
         const adapter = makeFailingAdapter();
@@ -255,6 +309,7 @@ export function runLeagueAdapterContract(options: ContractOptions): void {
         await expect(adapter.getLeaders()).rejects.toThrow();
         await expect(adapter.getGameDetail(inputs.gameIds[0])).rejects.toThrow();
         await expect(adapter.getTeam(inputs.teamIds[0])).rejects.toThrow();
+        await expect(adapter.getPlayer(inputs.playerIds[0])).rejects.toThrow();
       });
     });
   });

@@ -6,6 +6,7 @@ import type {
   GameStatus,
   LeaderBoard,
   LeagueAdapter,
+  PlayerDetail,
   RequestOptions,
   Standings,
   TeamDetail,
@@ -70,6 +71,21 @@ class FakeAdapter implements LeagueAdapter {
   }
   getTeam(teamId: string, options?: RequestOptions): Promise<TeamDetail> {
     return this.run(() => ({ teamId, stats: [], recent: [], upcoming: [] }), options);
+  }
+  getPlayer(playerId: string, options?: RequestOptions): Promise<PlayerDetail> {
+    return this.run(
+      () => ({
+        player: { id: playerId, league: "test", name: "A Player" },
+        active: true,
+        goalie: false,
+        bio: {},
+        season: [],
+        career: { regularSeason: [], playoffs: [] },
+        lastGames: { columns: [], games: [] },
+        seasons: { columns: [], rows: [] },
+      }),
+      options,
+    );
   }
 }
 

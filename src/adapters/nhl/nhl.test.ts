@@ -13,6 +13,8 @@ const FIXTURES: [RegExp, string][] = [
   [/\/gamecenter\/2026020342\/boxscore$/, "boxscore-2026020342-live.json"],
   [/\/gamecenter\/2026020333\/boxscore$/, "boxscore-2026020333-final.json"],
   [/\/gamecenter\/2026020333\/landing$/, "landing-2026020333-final.json"], // recorded 2026-11-20
+  [/\/player\/8474563\/landing$/, "player-8474563-landing.json"], // Drew Doughty (D), recorded 2026-11-20
+  [/\/player\/8475311\/landing$/, "player-8475311-landing.json"], // Darcy Kuemper (G), recorded 2026-11-20
   [/\/club-stats\/TOR\/now$/, "club-stats-TOR-now.json"],
   [/\/club-schedule-season\/TOR\/now$/, "club-schedule-season-TOR-now.json"],
 ];
@@ -65,6 +67,7 @@ runLeagueAdapterContract({
     gameIds: ["2026020342", "2026020333"],
     leaderQueries: [{}, { category: "goals", limit: 3 }, { category: "savePctg" }, { category: "goalsAgainstAverage" }],
     teamIds: ["TOR"],
+    playerIds: ["8474563", "8475311"], // Doughty (D), Kuemper (G)
   },
 });
 
@@ -81,6 +84,8 @@ describe("NHL adapter", () => {
     await adapter.getGameDetail("2026020342");
     await adapter.getGameDetail("2026020333");
     await adapter.getTeam("TOR");
+    await adapter.getPlayer("8474563");
+    await adapter.getPlayer("8475311");
     expect(warnings).toEqual([]);
   });
 
@@ -412,6 +417,126 @@ describe("NHL adapter", () => {
       expect(first.player.headshotUrl).toBeUndefined();
       expect(first.player.name).toBe("D. Kuemper");
       expect(first.stats).toEqual([]);
+    });
+  });
+
+  describe("player page", () => {
+    it("reads a skater's bio, season, career and recent games", async () => {
+      const { adapter, urls } = fixtureAdapter();
+      const d = await adapter.getPlayer("8474563");
+      expect(urls).toEqual(["https://api-web.nhle.com/v1/player/8474563/landing"]);
+      expect(d.player).toMatchObject({ id: "8474563", name: "Drew Doughty", teamId: "LAK", position: "D" });
+      expect(d.player.headshotUrl).toMatch(/^https:\/\/assets\.nhle\.com\/mugs\//);
+      expect(d).toMatchObject({ sweaterNumber: 8, active: true, goalie: false, seasonLabel: "2026-27" });
+      expect(d.team).toMatchObject({ id: "LAK", name: "Los Angeles Kings" });
+      expect(d.bio).toEqual({
+        birthDate: "1989-12-08",
+        birthPlace: "London, Ontario, CAN",
+        heightCm: 185,
+        heightIn: 73,
+        weightKg: 95,
+        weightLb: 210,
+        handedness: "R",
+        draft: { year: 2008, teamId: "LAK", round: 1, overallPick: 2 },
+      });
+      expect(d.season.map((s) => `${s.value} ${s.label}`)).toEqual([
+        "19 GP",
+        "1 G",
+        "7 A",
+        "8 PTS",
+        "+6 +/-",
+        "18 PIM",
+        "1 PPP",
+        "5.0% S%",
+      ]);
+      expect(d.career.regularSeason.map((s) => s.value)).toEqual(["1298", "166", "551", "717"]);
+      expect(d.career.playoffs.map((s) => s.value)).toEqual(["105", "19", "42", "61"]);
+      expect(d.lastGames.games).toHaveLength(5);
+      expect(d.lastGames.games[0]).toEqual({
+        gameId: "2026020347",
+        date: "2026-11-19",
+        teamId: "LAK",
+        opponentId: "TOR",
+        home: false,
+        values: { goals: 0, assists: 0, points: 0, plusMinus: -1, shots: 1, pim: 2, toi: "25:53" },
+      });
+    });
+
+    it("lists seasons newest first, marking NHL and playoff seasons", async () => {
+      const { seasons } = await fixtureAdapter().adapter.getPlayer("8474563");
+      expect(seasons.rows).toHaveLength(45);
+      expect(seasons.rows[0]).toMatchObject({
+        season: "2026-27",
+        team: "Kings",
+        league: "NHL",
+        inLeague: true,
+        playoffs: false,
+      });
+      expect(seasons.rows.at(-1)).toMatchObject({ season: "2004-05", team: "Lon. Jr. Knights", inLeague: false });
+      expect(seasons.rows.filter((s) => s.inLeague && !s.playoffs)).toHaveLength(19);
+      expect(seasons.rows.some((s) => s.league === "OG" && s.team === "Canada")).toBe(true);
+    });
+
+    it("reads a goalie's numbers", async () => {
+      const d = await fixtureAdapter().adapter.getPlayer("8475311");
+      expect(d.goalie).toBe(true);
+      expect(d.season.map((s) => `${s.value} ${s.label}`)).toEqual([
+        "13 GP",
+        "7 W",
+        "5 L",
+        "1 OTL",
+        "3.22 GAA",
+        ".885 SV%",
+        "1 SO",
+      ]);
+      expect(d.career.regularSeason.map((s) => s.label)).toEqual(["GP", "W", "GAA", "SV%", "SO"]);
+      expect(d.lastGames.columns.map((c) => c.key)).toEqual([
+        "decision",
+        "shotsAgainst",
+        "goalsAgainst",
+        "savePctg",
+        "toi",
+      ]);
+      expect(d.lastGames.games[0].values).toMatchObject({ decision: "W", shotsAgainst: 27, goalsAgainst: 3 });
+      expect(d.bio.draft).toEqual({ year: 2009, teamId: "MIN", round: 6, overallPick: 161 });
+    });
+
+    it("copes with a player without a team, stats or bio", async () => {
+      const { adapter, warnings } = fixtureAdapter((url, body) => {
+        if (!url.includes("/player/")) return;
+        for (const key of [
+          "currentTeamAbbrev",
+          "fullTeamName",
+          "isActive",
+          "featuredStats",
+          "careerTotals",
+          "draftDetails",
+          "birthCity",
+          "birthStateProvince",
+          "heightInInches",
+          "last5Games",
+        ]) {
+          delete body[key];
+        }
+        body.seasonTotals[0].season = "twenty"; // one broken season row
+      });
+      const d = await adapter.getPlayer("8474563");
+      expect(d.team).toBeUndefined();
+      expect(d.active).toBe(false);
+      expect(d.season).toEqual([]);
+      expect(d.career).toEqual({ regularSeason: [], playoffs: [] });
+      expect(d.lastGames.games).toEqual([]);
+      expect(d.bio.birthPlace).toBe("CAN");
+      expect(d.bio.draft).toBeUndefined();
+      expect(d.seasons.rows).toHaveLength(44);
+      expect(warnings.some((w) => w.message.includes("seasonTotals[0] dropped"))).toBe(true);
+    });
+
+    it("fails loudly when the core fields change", async () => {
+      const { adapter } = fixtureAdapter((url, body) => {
+        if (url.includes("/player/")) delete body.lastName;
+      });
+      await expect(adapter.getPlayer("8474563")).rejects.toBeInstanceOf(NhlResponseError);
     });
   });
 

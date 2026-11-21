@@ -11,12 +11,16 @@ import type {
   GoalStrength,
   LeaderBoard,
   Player,
+  PlayerDetail,
+  PlayerGameLine,
+  PlayerSeasonLine,
   RecordSplit,
   StatColumn,
   StatTable,
   Standings,
   StandingsGroup,
   StarStat,
+  StatItem,
   Team,
   TeamDetail,
   Venue,
@@ -25,6 +29,10 @@ import {
   GOALIE_COLUMNS,
   LEADER_LABELS,
   LEAGUE,
+  PLAYER_GAME_GOALIE_COLUMNS,
+  PLAYER_GAME_SKATER_COLUMNS,
+  PLAYER_SEASON_GOALIE_COLUMNS,
+  PLAYER_SEASON_SKATER_COLUMNS,
   SEASON_GOALIE_COLUMNS,
   SEASON_SKATER_COLUMNS,
   SKATER_COLUMNS,
@@ -42,6 +50,10 @@ import type {
   RawGoalie,
   RawLanding,
   RawLeadersResponse,
+  RawPlayerGame,
+  RawPlayerLanding,
+  RawPlayerSeason,
+  RawPlayerStats,
   RawSideStats,
   RawSkater,
   RawStandingsResponse,
@@ -512,5 +524,151 @@ export function mapTeamSchedule(
       .slice(-TEAM_GAMES_SHOWN)
       .reverse(),
     upcoming: games.filter((g) => g.status === "scheduled").slice(0, TEAM_GAMES_SHOWN),
+  };
+}
+
+// ---------- Player page ----------
+
+/** 20262027 as "2026-27". */
+export function seasonLabel(season: number): string {
+  const start = Math.floor(season / 10000);
+  return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
+}
+
+/** Values for the given columns, leaving out stats the response does not have. */
+function pick(record: Record<string, unknown>, columns: { key: string }[]): Record<string, string | number> {
+  const values: Record<string, string | number> = {};
+  for (const { key } of columns) {
+    const v = record[key];
+    if (typeof v === "number" || typeof v === "string") values[key] = v;
+  }
+  return values;
+}
+
+/** Stats as value/label pairs in the given order; missing ones are left out. */
+function items(
+  stats: RawPlayerStats | undefined,
+  fields: [keyof RawPlayerStats, string, (n: number) => string][],
+): StatItem[] {
+  if (!stats) return [];
+  return fields.flatMap(([key, label, format]) => {
+    const v = stats[key];
+    return typeof v === "number" ? [{ value: format(v), label }] : [];
+  });
+}
+
+const whole = (n: number) => String(n);
+const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
+const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
+const gaa = (n: number) => n.toFixed(2);
+
+const SKATER_SEASON: [keyof RawPlayerStats, string, (n: number) => string][] = [
+  ["gamesPlayed", "GP", whole],
+  ["goals", "G", whole],
+  ["assists", "A", whole],
+  ["points", "PTS", whole],
+  ["plusMinus", "+/-", signed],
+  ["pim", "PIM", whole],
+  ["powerPlayPoints", "PPP", whole],
+  ["shootingPctg", "S%", pct],
+];
+
+const GOALIE_SEASON: [keyof RawPlayerStats, string, (n: number) => string][] = [
+  ["gamesPlayed", "GP", whole],
+  ["wins", "W", whole],
+  ["losses", "L", whole],
+  ["otLosses", "OTL", whole],
+  ["goalsAgainstAvg", "GAA", gaa],
+  ["savePctg", "SV%", savePctLabel],
+  ["shutouts", "SO", whole],
+];
+
+function playerGame(raw: RawPlayerGame, columns: { key: string }[]): PlayerGameLine {
+  return {
+    gameId: String(raw.gameId),
+    date: raw.gameDate,
+    teamId: raw.teamAbbrev,
+    opponentId: raw.opponentAbbrev,
+    home: raw.homeRoadFlag === undefined ? undefined : raw.homeRoadFlag === "H",
+    values: pick(raw, columns),
+  };
+}
+
+function playerSeason(raw: RawPlayerSeason, columns: { key: string }[]): PlayerSeasonLine {
+  const inLeague = raw.leagueAbbrev === "NHL";
+  return {
+    season: seasonLabel(raw.season),
+    team: (inLeague ? raw.teamCommonName?.default : undefined) ?? raw.teamName.default,
+    league: raw.leagueAbbrev,
+    inLeague,
+    playoffs: raw.gameTypeId === 3,
+    values: pick(raw, columns),
+  };
+}
+
+/** "London, Ontario, CAN", skipping parts that are missing. */
+function birthPlace(raw: RawPlayerLanding): string | undefined {
+  const parts = [raw.birthCity?.default, raw.birthStateProvince?.default, raw.birthCountry].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : undefined;
+}
+
+export function mapPlayerDetail(raw: RawPlayerLanding): PlayerDetail {
+  const goalie = raw.position === "G";
+  const teamId = raw.currentTeamAbbrev;
+  const gameColumns = goalie ? PLAYER_GAME_GOALIE_COLUMNS : PLAYER_GAME_SKATER_COLUMNS;
+  const seasonColumns = goalie ? PLAYER_SEASON_GOALIE_COLUMNS : PLAYER_SEASON_SKATER_COLUMNS;
+  const seasonFields = goalie ? GOALIE_SEASON : SKATER_SEASON;
+  // Career lines are shorter than a season's: the headline numbers only.
+  const careerFields = goalie
+    ? GOALIE_SEASON.filter(([k]) => ["gamesPlayed", "wins", "goalsAgainstAvg", "savePctg", "shutouts"].includes(k))
+    : SKATER_SEASON.filter(([k]) => ["gamesPlayed", "goals", "assists", "points"].includes(k));
+  const featured = raw.featuredStats;
+  // The API lists seasons oldest first, so reversed they are newest first. Within a season this puts
+  // the team a player joined last first. (`sequence` is not a usable order: outside the NHL it holds
+  // large ids.) The sort is stable, so it only fixes seasons the API sent out of order.
+  const seasons = [...(raw.seasonTotals ?? [])]
+    .reverse()
+    .sort((a, b) => b.season - a.season)
+    .map((r) => playerSeason(r, seasonColumns));
+  const draft = raw.draftDetails;
+
+  return {
+    player: {
+      id: String(raw.playerId),
+      league: LEAGUE,
+      name: `${raw.firstName.default} ${raw.lastName.default}`,
+      teamId,
+      position: raw.position,
+      headshotUrl: raw.headshot,
+    },
+    sweaterNumber: raw.sweaterNumber,
+    team: teamId
+      ? { id: teamId, league: LEAGUE, name: raw.fullTeamName?.default ?? teamId, abbrev: teamId, logoUrl: raw.teamLogo }
+      : undefined,
+    active: raw.isActive ?? teamId !== undefined,
+    goalie,
+    bio: {
+      birthDate: raw.birthDate,
+      birthPlace: birthPlace(raw),
+      heightCm: raw.heightInCentimeters,
+      heightIn: raw.heightInInches,
+      weightKg: raw.weightInKilograms,
+      weightLb: raw.weightInPounds,
+      handedness: raw.shootsCatches,
+      draft: draft && {
+        year: draft.year,
+        teamId: draft.teamAbbrev,
+        round: draft.round,
+        overallPick: draft.overallPick,
+      },
+    },
+    seasonLabel: featured ? seasonLabel(featured.season) : undefined,
+    season: items(featured?.regularSeason?.subSeason, seasonFields),
+    career: {
+      regularSeason: items(raw.careerTotals?.regularSeason, careerFields),
+      playoffs: items(raw.careerTotals?.playoffs, careerFields),
+    },
+    lastGames: { columns: gameColumns, games: (raw.last5Games ?? []).map((g) => playerGame(g, gameColumns)) },
+    seasons: { columns: seasonColumns, rows: seasons },
   };
 }

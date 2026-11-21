@@ -8,6 +8,7 @@ import type {
   LeaderBoard,
   LeaderQuery,
   LeagueAdapter,
+  PlayerDetail,
   RequestOptions,
   Standings,
   TeamDetail,
@@ -21,6 +22,7 @@ import {
   mapGoals,
   mapLeaders,
   mapStandings,
+  mapPlayerDetail,
   mapTeamSchedule,
   mapThreeStars,
 } from "./mappers";
@@ -31,6 +33,7 @@ import {
   RawClubStatsSchema,
   RawLandingSchema,
   RawLeadersResponseSchema,
+  RawPlayerLandingSchema,
   RawScoreResponseSchema,
   RawStandingsResponseSchema,
 } from "./raw-types";
@@ -140,6 +143,11 @@ export class NhlAdapter implements LeagueAdapter {
       this.getTeamSchedule(team, teamId, options),
     ]);
     return { teamId, stats: mapClubStats(stats), ...schedule };
+  }
+
+  async getPlayer(playerId: string, options?: RequestOptions): Promise<PlayerDetail> {
+    const raw = await this.fetch(`/player/${encodeURIComponent(playerId)}/landing`, RawPlayerLandingSchema, options);
+    return mapPlayerDetail(raw);
   }
 
   /** Games are an extra on the team page: if this call fails the stats still show, without them. */
